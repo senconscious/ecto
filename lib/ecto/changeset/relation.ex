@@ -103,6 +103,14 @@ defmodule Ecto.Changeset.Relation do
     end
   end
 
+  def cast(%{related: nil} = relation, owner, params, current, on_cast) do
+    fun = &do_cast(relation, owner, &1, &2, &3, &4, on_cast)
+
+    with :error <- cast_or_change(relation, params, current, fn _ -> [] end, fn _ -> [] end, fun) do
+      {:error, {"is invalid", [type: expected_type(relation)]}}
+    end
+  end
+
   def cast(%{related: mod} = relation, owner, params, current, on_cast) do
     pks = mod.__schema__(:primary_key)
     fun = &do_cast(relation, owner, &1, &2, &3, &4, on_cast)
@@ -123,6 +131,14 @@ defmodule Ecto.Changeset.Relation do
     end
 
     do_cast(meta, owner, params, struct, allowed_actions, idx, on_cast)
+  end
+
+  defp do_cast(%{related: nil} = relation, _owner, params, nil = _struct, allowed_actions, idx, on_cast) do
+    {:ok,
+      relation
+      |> apply_on_cast(on_cast, %{}, params, idx)
+      |> put_new_action(:insert)
+      |> check_action!(allowed_actions)}
   end
 
   defp do_cast(relation, owner, params, nil = _struct, allowed_actions, idx, on_cast) do
